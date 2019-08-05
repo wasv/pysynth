@@ -43,6 +43,20 @@ class SineNode(BaseNode):
         for i in I.count(0):
             yield math.sin((i/self.framerate)*math.tau*self.freq)
 
+class ModNode(BaseNode):
+    def __init__(self, freq=60):
+        self.freq = freq
+        self._sink = None
+
+    def sink(self, signal):
+        self._sink = signal
+
+    def source(self):
+        deviation = 0.0
+        for i in I.count(0):
+            deviation += next(self._sink)
+            yield math.cos(math.tau*(i/self.framerate)*self.freq + deviation)
+
 class MixNode(BaseNode):
 
     def __init__(self):
@@ -92,15 +106,16 @@ def harmony(f0=440,nharmonics=3):
 def _main(outfile):
     osc1 = harmony(360,2)
     osc2 = harmony(640,2)
+    osc = SineNode(440)
+    mod = ModNode(4)
 
     mixer = MixNode()
 
     out = DumpNode()
 
-    mixer(osc1())
-    mixer(osc2())
+    mod(osc2())
 
-    out(mixer())
+    out(mod())
 
     out.dump(outfile)
 
