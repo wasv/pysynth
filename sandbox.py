@@ -9,7 +9,7 @@ import functools as F
 from tempfile import TemporaryFile
 
 class BaseNode:
-    framerate = 192000
+    framerate = 44100
 
     def __call__(self, signal=None, **kwargs):
         if signal:
@@ -35,6 +35,15 @@ class ConstantNode(BaseNode):
         while True:
             yield self.value
 
+class SquareNode(BaseNode):
+    def __init__(self, freq=440, duty=0.5):
+        self.freq = freq
+        self.duty = duty
+
+    def source(self):
+        for i in I.count(1):
+            yield (int(((i/self.framerate)*self.freq) % 1 >= self.duty)*2)-1
+
 class SineNode(BaseNode):
     def __init__(self, freq=440):
         self.freq = freq
@@ -44,22 +53,17 @@ class SineNode(BaseNode):
             yield math.sin((i/self.framerate)*math.tau*self.freq)
 
 class ModNode(BaseNode):
-    def __init__(self, freq=60):
-        self.freq = freq
+    def __init__(self, amod=None):
+        self._amod = amod
         self._sink = None
 
     def sink(self, signal):
         self._sink = signal
 
     def source(self):
-        lpf = 0.1
-        fdeviation = 0.0
-        dc_comp = 0.0
         for i in I.count(1):
-            ampl = next(self._sink)
-            dc_comp = (1.0-lpf) * dc_comp + lpf * ampl - (dc_comp/i)
-            fdeviation += ampl - dc_comp
-            yield math.cos(math.tau*(i/self.framerate)*self.freq + fdeviation)
+            ampl = next(self._amod) if self._amod else 1
+            yield next(self._sink) * ampl
 
 class MixNode(BaseNode):
 
